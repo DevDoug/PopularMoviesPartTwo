@@ -152,8 +152,6 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
         if(movieDetailFrag != null && !isaMovieSelected){
             movieDetailFrag.updateContent(0); //select the first movie automatically
             isaMovieSelected = true;
-            Intent i = createShareIntent();
-            setShareIntent(i);
         }
     }
 
