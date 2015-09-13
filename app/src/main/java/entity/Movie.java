@@ -1,5 +1,8 @@
 package entity;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
@@ -8,7 +11,7 @@ import java.io.Serializable;
  * Created by Douglas on 7/28/2015.
  */
 
-public class Movie {
+public class Movie implements Parcelable {
 
     public String mID;
 
@@ -70,4 +73,48 @@ public class Movie {
         this.mReleaseDate = ReleaseDate;
     }
 
+    public Movie(){
+
+    }
+
+    public Movie(String mid, String title,String path, String overview, String voteaverage, String releasedate) {
+        this.mID = mid;
+        this.mTitle = title;
+        this.mPath = path;
+        this.mOverview = overview;
+        this.mVoteAverage = voteaverage;
+        this.mReleaseDate = releasedate;
+    }
+
+    private Movie(Parcel in) {
+        mID = in.readString();
+        mTitle = in.readString();
+        mPath = in.readString();
+        mOverview = in.readString();
+        mReleaseDate = in.readString();
+        mVoteAverage = in.readString();
+    }
+
+    public int describeContents() {
+        return 0;
+    }
+
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeString(mID);
+        out.writeString(mTitle);
+        out.writeString(mPath);
+        out.writeString(mOverview);
+        out.writeString(mReleaseDate);
+        out.writeString(mVoteAverage);
+    }
+
+    public static final Parcelable.Creator<Movie> CREATOR = new Parcelable.Creator<Movie>() {
+        public Movie createFromParcel(Parcel in) {
+            return new Movie(in);
+        }
+
+        public Movie[] newArray(int size) {
+            return new Movie[size];
+        }
+    };
 }

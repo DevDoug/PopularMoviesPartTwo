@@ -1,6 +1,7 @@
 package com.example.douglas.popularmovies;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
@@ -11,13 +12,19 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.GridView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ShareActionProvider;
+import android.widget.TextView;
+
+import java.util.ArrayList;
 
 import adapters.MovieReviewAdapter;
 import adapters.MovieTrailerAdapter;
@@ -36,6 +43,8 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
     public MovieTrailerAdapter mMovieTrailerAdapter;
     public MovieReviewAdapter mMovieReviewAdapter;
     public boolean isaMovieSelected = false;
+    public ArrayList<Movie> mCurrentMovies;
+    private ShareActionProvider mShareActionProvider;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,22 +60,31 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
         NetworkInfo activeNetwork = connectionmanager.getActiveNetworkInfo();
 
         if(activeNetwork != null && activeNetwork.isConnectedOrConnecting()) {
-            // Check whether we're recreating a previously destroyed instance
-            if (savedInstanceState != null) {
-                // Restore value of members from saved state
-                this.onFetchMovieTaskCompleted();
+            if (savedInstanceState == null ) {
+                mDataFetcher.getMovies();
             } else {
-               mDataFetcher.getMovies();
+                mCurrentMovies = savedInstanceState.getParcelableArrayList("movies");
+                Constants.mMoviesAdapter = new MovieAdapter(this, mCurrentMovies);
+                mMoviesGrid.setAdapter(Constants.mMoviesAdapter);
             }
-        }else {
+        } else {
             showFavorites();
         }
+    }
+
+    //save our current movies so that we dont have to make multiple calls
+    @Override
+    protected void onSaveInstanceState(Bundle currentMovieBundle) {
+        currentMovieBundle.putParcelableArrayList("movies", mCurrentMovies);
+        super.onSaveInstanceState(currentMovieBundle);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
+        MenuItem item = menu.findItem(R.id.action_share);
+        mShareActionProvider = (ShareActionProvider) item.getActionProvider();
         return true;
     }
 
@@ -93,12 +111,15 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
             showFavorites();
         }
 
-        return super.onOptionsItemSelected(item);
-    }
+        //share first trailer
+        if(id == R.id.action_share) {
+            if( movieDetailFrag.mCurrentMovie != null){
+                Intent i = createShareIntent();
+                setShareIntent(i);
+            }
+        }
 
-    @Override
-    public void onSaveInstanceState(Bundle savedInstanceState) {
-        super.onSaveInstanceState(savedInstanceState);
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -123,31 +144,32 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
     @Override
     public void onFetchMovieTaskCompleted() {
         if(Constants.mMovies != null) {
-            Constants.mMoviesAdapter = new MovieAdapter(this, Constants.mMovies);
+            mCurrentMovies = Constants.mMovies;
+            Constants.mMoviesAdapter = new MovieAdapter(this, mCurrentMovies);
             mMoviesGrid.setAdapter(Constants.mMoviesAdapter);
         }
 
         if(movieDetailFrag != null && !isaMovieSelected){
             movieDetailFrag.updateContent(0); //select the first movie automatically
             isaMovieSelected = true;
+            Intent i = createShareIntent();
+            setShareIntent(i);
         }
     }
 
     @Override
     public void onFetchReviewsTaskCompleted() {
-        mMovieReviewAdapter = new MovieReviewAdapter(this, Constants.mReviews);
         if(movieDetailFrag != null){
-            ListView MovieReviewList =(ListView) movieDetailFrag.getView().findViewById(R.id.movie_review_list);
-            MovieReviewList.setAdapter(mMovieReviewAdapter);
+            movieDetailFrag.mCurrentReviews = Constants.mReviews;
+            populateReviews();
         }
     }
 
     @Override
     public void onFetchTrailerTaskCompleted() {
-        mMovieTrailerAdapter = new MovieTrailerAdapter(this, Constants.mTrailers);
         if(movieDetailFrag != null){
-            ListView MovieTrailerList =(ListView) movieDetailFrag.getView().findViewById(R.id.movie_trailer_list);
-            MovieTrailerList.setAdapter(mMovieTrailerAdapter);
+            movieDetailFrag.mCurrentTrailers = Constants.mTrailers;
+            populateTrailers();
         }
     }
 
@@ -167,7 +189,6 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
                 switchadaptertotrailers();
                 break;
         }
-
     }
 
     @Override
@@ -177,6 +198,21 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
                 saveMovieToFavorites(m);
                 break;
         }
+    }
+
+    private void setShareIntent(Intent shareIntent) {
+        if (mShareActionProvider != null) {
+            mShareActionProvider.setShareIntent(shareIntent);
+        }
+    }
+
+    public Intent createShareIntent(){
+        Intent shareIntent = new Intent();
+        shareIntent.setAction(Intent.ACTION_SEND);
+        shareIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.youtube_web_url) + movieDetailFrag.mCurrentMovie.getID());
+        shareIntent.setType("text/plain");
+        startActivity(shareIntent);
+        return shareIntent;
     }
 
     @Override
@@ -206,8 +242,8 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
         if(movieDetailFrag != null){
             Button trailerbutton = (Button) movieDetailFrag.getView().findViewById(R.id.switch_to_trailer_button);
             Button reviewbutton = (Button) movieDetailFrag.getView().findViewById(R.id.switch_to_review_button);
-            ListView movieTrailerList = (ListView) movieDetailFrag.getView().findViewById(R.id.movie_trailer_list);
-            ListView reviewList = (ListView) movieDetailFrag.getView().findViewById(R.id.movie_review_list);
+            LinearLayout movieTrailerList = (LinearLayout) movieDetailFrag.getView().findViewById(R.id.movie_trailer_list);
+            LinearLayout reviewList = (LinearLayout) movieDetailFrag.getView().findViewById(R.id.movie_review_list);
 
             reviewbutton.setVisibility(View.GONE);
             trailerbutton.setVisibility(View.VISIBLE);
@@ -221,14 +257,67 @@ public class MainActivity extends Activity implements MoviePosterGridFragment.On
         if(movieDetailFrag != null){
             Button trailerbutton = (Button) movieDetailFrag.getView().findViewById(R.id.switch_to_trailer_button);
             Button reviewbutton = (Button) movieDetailFrag.getView().findViewById(R.id.switch_to_review_button);
-            ListView movieTrailerList = (ListView) movieDetailFrag.getView().findViewById(R.id.movie_trailer_list);
-            ListView reviewList = (ListView) movieDetailFrag.getView().findViewById(R.id.movie_review_list);
+            LinearLayout movieTrailerList = (LinearLayout) movieDetailFrag.getView().findViewById(R.id.movie_trailer_list);
+            LinearLayout reviewList = (LinearLayout) movieDetailFrag.getView().findViewById(R.id.movie_review_list);
 
             reviewbutton.setVisibility(View.VISIBLE);
             trailerbutton.setVisibility(View.GONE);
 
             movieTrailerList.setVisibility(View.VISIBLE);
             reviewList.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    public void populateReviews(){
+        LinearLayout MovieReviewList =(LinearLayout) movieDetailFrag.getView().findViewById(R.id.movie_review_list);
+        if(movieDetailFrag.mCurrentReviews != null){
+            for(int i = 0; i < movieDetailFrag.mCurrentReviews.size();i++){
+                LayoutInflater vi = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                View v = vi.inflate(R.layout.movie_review_list_item, null);
+
+                TextView reviewtextview = (TextView) v.findViewById(R.id.movie_review_name);
+                String reviewtext = movieDetailFrag.mCurrentReviews.get(i).getContent();
+                if(reviewtext != null)
+                    reviewtextview.setText(reviewtext);
+
+                // insert into main view
+                MovieReviewList.addView(v);
+            }
+        }
+    }
+
+    public void populateTrailers(){
+        LinearLayout MovieTrailerList =(LinearLayout) movieDetailFrag.getView().findViewById(R.id.movie_trailer_list);
+        if(movieDetailFrag.mCurrentTrailers != null) {
+            for(int i = 0; i < movieDetailFrag.mCurrentTrailers.size();i++){
+                LayoutInflater vi = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                View v = vi.inflate(R.layout.movie_trailer_list_item, null);
+
+                TextView trailername = (TextView) v.findViewById(R.id.trailer_name);
+                trailername.setText(movieDetailFrag.mCurrentTrailers.get(i).getName());
+                trailername.setTag(movieDetailFrag.mCurrentTrailers.get(i).getID());
+
+                v.setOnClickListener(new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View v) {
+                        //play trailer
+                        TextView movietitleview = (TextView) v.findViewById(R.id.trailer_name);
+                        String movieid = movietitleview.getTag().toString();
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.youtube_app_uri) + movieid));
+                            startActivity(intent);
+                        } catch (ActivityNotFoundException ex) {
+                            Intent intent = new Intent(Intent.ACTION_VIEW,
+                                    Uri.parse(getString(R.string.youtube_web_url) + movieid));
+                            startActivity(intent);
+                        }
+                    }
+                });
+
+                // insert into main view
+                MovieTrailerList.addView(v);
+            }
         }
     }
 }

@@ -10,15 +10,20 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import com.squareup.picasso.Picasso;
 
+import java.util.ArrayList;
+
 import adapters.MovieReviewAdapter;
 import adapters.MovieTrailerAdapter;
 import data.FetchMovieData;
 import entity.Movie;
+import entity.Review;
+import entity.Trailer;
 import listeners.ITaskCompleteListener;
 import popularmovieconstants.Constants;
 
@@ -43,7 +48,7 @@ public class MovieDetailFragment extends Fragment {
 
     static int currentOrientation;
 
-    public Movie mCurrentMovie;
+    public static Movie mCurrentMovie;
     public TextView mMovieTitleText;
     public ImageView mMoviePoster;
     public TextView mMovieOverview;
@@ -51,13 +56,15 @@ public class MovieDetailFragment extends Fragment {
     public TextView mMovieDateReleasedfield;
 
    // public FetchMovieData mDataFetcher;
-    public ListView mMovieTrailerList;
-    public ListView mReviewList;
+    public LinearLayout mMovieTrailerList;
+    public LinearLayout mReviewList;
 
     public Button mReviewButton;
     public Button mTrailerButton;
     public Button mFavoriteButton;
 
+    ArrayList<Review> mCurrentReviews;
+    ArrayList<Trailer> mCurrentTrailers;
 
     private OnFragmentInteractionListener mListener;
 
@@ -125,8 +132,8 @@ public class MovieDetailFragment extends Fragment {
         mMovieOverview = (TextView) mainView.findViewById(R.id.movie_overview);
         mMovieVoteAverageText = (TextView) mainView.findViewById(R.id.movie_average);
         mMovieDateReleasedfield = (TextView) mainView.findViewById(R.id.movie_release_date_field);
-        mMovieTrailerList = (ListView) mainView.findViewById(R.id.movie_trailer_list);
-        mReviewList = (ListView) mainView.findViewById(R.id.movie_review_list);
+        mMovieTrailerList = (LinearLayout) mainView.findViewById(R.id.movie_trailer_list);
+        mReviewList = (LinearLayout) mainView.findViewById(R.id.movie_review_list);
         mReviewButton = (Button) mainView.findViewById(R.id.switch_to_review_button);
         mTrailerButton = (Button) mainView.findViewById(R.id.switch_to_trailer_button);
         mFavoriteButton = (Button) mainView.findViewById(R.id.mark_as_favorites_button);
@@ -138,6 +145,44 @@ public class MovieDetailFragment extends Fragment {
             mListener.onFragmentInteraction(v);
         }
     }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putParcelableArrayList("reviews", mCurrentReviews);
+        outState.putParcelableArrayList("trailers", mCurrentTrailers);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onViewStateRestored(Bundle savedInstanceState) {
+        if(savedInstanceState != null && (savedInstanceState.getSerializable("reviews") != null) && (savedInstanceState.getSerializable("trailers") != null)){
+
+            if(mCurrentMovie != null) { //restore movie details
+                mMovieTitleText.setText(mCurrentMovie.getTitle());
+                mMovieOverview.setText(mCurrentMovie.getOverview());
+                mMovieVoteAverageText.setText(String.format(getString(R.string.movie_rating_date), mCurrentMovie.getVoteAverage()));
+                mMovieDateReleasedfield.setText(mCurrentMovie.getReleaseDate().split("-")[0]);
+                if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    // Landscape
+                    String movieposterurllarge = (this.getString(R.string.moviedb_poster_base_url).concat(this.getString(R.string.moviedb_size_w185)).concat(mCurrentMovie.getPath()));
+                    Picasso.with(getActivity().getApplicationContext()).load(movieposterurllarge).into(mMoviePoster);
+                }
+                else {
+                    // Portrait
+                    String movieposterurllarge = (this.getString(R.string.moviedb_poster_base_url).concat(this.getString(R.string.moviedb_size_w342)).concat(mCurrentMovie.getPath()));
+                    Picasso.with(getActivity().getApplicationContext()).load(movieposterurllarge).into(mMoviePoster);
+                }
+            }
+
+            mCurrentReviews = savedInstanceState.getParcelableArrayList("reviews");
+            mCurrentTrailers = savedInstanceState.getParcelableArrayList("trailers");
+            ((MainActivity)getActivity()).populateReviews();
+            ((MainActivity)getActivity()).populateTrailers();
+        }
+        super.onViewStateRestored(savedInstanceState);
+    }
+
     public void onFavoritePressed(View v) {
         if (mListener != null) {
             mListener.onFragmentInteraction(v,mCurrentMovie);
@@ -183,6 +228,7 @@ public class MovieDetailFragment extends Fragment {
         mMovieOverview.setText(selectedMovie.getOverview());
         mMovieVoteAverageText.setText(String.format(getString(R.string.movie_rating_date), selectedMovie.getVoteAverage()));
         mMovieDateReleasedfield.setText(selectedMovie.getReleaseDate().split("-")[0]);
+
         if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
             // Landscape
             String movieposterurllarge = (this.getString(R.string.moviedb_poster_base_url).concat(this.getString(R.string.moviedb_size_w185)).concat(selectedMovie.getPath()));
@@ -193,6 +239,9 @@ public class MovieDetailFragment extends Fragment {
             String movieposterurllarge = (this.getString(R.string.moviedb_poster_base_url).concat(this.getString(R.string.moviedb_size_w342)).concat(selectedMovie.getPath()));
             Picasso.with(getActivity().getApplicationContext()).load(movieposterurllarge).into(mMoviePoster);
         }
-        ((MainActivity)getActivity()).retrieveReviewsAndTrailersForFragment(selectedMovie.getID());
+
+        if (mCurrentReviews == null || mCurrentTrailers == null ) {
+            ((MainActivity)getActivity()).retrieveReviewsAndTrailersForFragment(selectedMovie.getID());
+        }
     }
 }

@@ -25,17 +25,32 @@ public class WebService {
     }
 
     public MovieJSON getMovies(boolean sortType) {
-        if(sortType)
-            return mService.listMovies("popularity.desc&api_key=d273a1a1fb9390dab97ac0032b12366a");
-        else
-            return mService.listMovies("vote_count.desc&api_key=d273a1a1fb9390dab97ac0032b12366a");
+        try {
+            if(sortType)
+                return mService.listMovies("popularity.desc&api_key=d273a1a1fb9390dab97ac0032b12366a");
+            else
+                return mService.listMovies("vote_count.desc&api_key=d273a1a1fb9390dab97ac0032b12366a");
+        } catch(Exception ex) {
+            ex.printStackTrace();
+        }
+        return null;
     }
 
     public ReviewJSON getReviews(String movieid) {
-        return mService.listReviews(movieid);
+        try {
+            return mService.listReviews(movieid);
+        }catch(Exception ex){
+            ex.printStackTrace();
+        }
+        return null;
     }
 
     public VideoJSON getVideos(String movieid) {
-        return mService.listVideos(movieid);
+        try {
+            return mService.listVideos(movieid);
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        return null;
     }
 }

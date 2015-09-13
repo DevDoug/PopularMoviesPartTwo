@@ -8,6 +8,7 @@
     <TextView
         android:id="@+id/movie_review_name"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:textColor="@color/movie_details_text_color"/>
 
 </LinearLayout>

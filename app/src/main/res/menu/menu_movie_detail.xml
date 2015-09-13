@@ -8,10 +8,9 @@
         android:orderInCategory="100"
         app:showAsAction="never" />
 
-    <item
-        android:id="@+id/menu_item_share"
-        app:showAsAction="ifRoom"
-        android:title="Share Trailer"
-        android:actionProviderClass="android.widget.ShareActionProvider" />
+    <item android:id="@+id/action_share"
+        android:title="Share"
+        app:showAsAction="always"
+        app:actionProviderClass="android.support.v7.widget.ShareActionProvider" />
 
 </menu>

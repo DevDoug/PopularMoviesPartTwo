@@ -1,9 +1,12 @@
 package entity;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 /**
  * Created by Douglas on 8/17/2015.
  */
-public class Review {
+public class Review implements Parcelable {
 
     public String mReviewID;
 
@@ -44,4 +47,44 @@ public class Review {
     public void setURL(String mURL) {
         this.mURL = mURL;
     }
+
+    public Review(){
+
+    }
+
+    public Review(String rid, String author,String content, String url) {
+        this.mReviewID = rid;
+        this.mAuthor = author;
+        this.mContent = content;
+        this.mURL = url;
+    }
+
+    private Review(Parcel in) {
+        mReviewID = in.readString();
+        mAuthor = in.readString();
+        mContent = in.readString();
+        mURL = in.readString();
+    }
+
+    public int describeContents() {
+        return 0;
+    }
+
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeString(mReviewID);
+        out.writeString(mAuthor);
+        out.writeString(mContent);
+        out.writeString(mURL);
+    }
+
+    public static final Parcelable.Creator<Review> CREATOR = new Parcelable.Creator<Review>() {
+        public Review createFromParcel(Parcel in) {
+            return new Review(in);
+        }
+
+        public Review[] newArray(int size) {
+            return new Review[size];
+        }
+    };
+
 }

@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -12,32 +13,21 @@ import android.net.Uri;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ListView;
+import android.widget.LinearLayout;
 import android.widget.ShareActionProvider;
 import android.widget.TextView;
 import com.squareup.picasso.Picasso;
-
-import java.net.URI;
-import java.security.Provider;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-
-import adapters.MovieReviewAdapter;
-import adapters.MovieTrailerAdapter;
 import data.FetchMovieData;
 import data.MovieContract;
-import data.MovieDBContentProvider;
-import data.MovieDbHelper;
 import entity.Movie;
 import entity.Review;
 import entity.Trailer;
@@ -49,6 +39,9 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
     private static final String TAG = "MovieDetalActivity";
     public Movie mMovie = new Movie();
 
+    public ArrayList<Review> mCurrentReviews;
+    public ArrayList<Trailer> mCurrentTrailers;
+
     public TextView mMovieTitleText;
     public ImageView mMoviePoster;
     public TextView mMovieOverview;
@@ -56,10 +49,8 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
     public TextView mMovieDateReleasedfield;
 
     public FetchMovieData mDataFetcher;
-    public ListView mMovieTrailerList;
-    public ListView mReviewList;
-    public MovieTrailerAdapter mMovieTrailerAdapter;
-    public MovieReviewAdapter mMovieReviewAdapter;
+    public LinearLayout mMovieTrailerList;
+    public LinearLayout mReviewList;
 
     public Button mReviewButton;
     public Button mTrailerButton;
@@ -90,8 +81,8 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
         mMovieOverview = (TextView) findViewById(R.id.movie_overview);
         mMovieVoteAverageText = (TextView) findViewById(R.id.movie_average);
         mMovieDateReleasedfield = (TextView) findViewById(R.id.movie_release_date_field);
-        mMovieTrailerList = (ListView) findViewById(R.id.movie_trailer_list);
-        mReviewList = (ListView) findViewById(R.id.movie_review_list);
+        mMovieTrailerList = (LinearLayout) findViewById(R.id.movie_trailer_list);
+        mReviewList = (LinearLayout) findViewById(R.id.movie_review_list);
         mReviewButton = (Button) findViewById(R.id.switch_to_review_button);
         mTrailerButton = (Button) findViewById(R.id.switch_to_trailer_button);
         mFavoriteButton = (Button) findViewById(R.id.mark_as_favorites_button);
@@ -105,39 +96,40 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
         Picasso.with(this).load(movieposterurllarge).into(mMoviePoster);
 
         mDataFetcher = new FetchMovieData(this,this);
+
         mDataFetcher.setReviewID(mMovie.getID());
         mDataFetcher.setTrailerID(mMovie.getID());
 
         mDataFetcher.getVideos();
-        mDataFetcher.getReviews();
+
+        if (savedInstanceState == null ) {
+            mDataFetcher.getReviews();
+            mDataFetcher.getVideos();
+        } else {
+            mCurrentReviews = savedInstanceState.getParcelableArrayList("reviews");
+            mCurrentTrailers = savedInstanceState.getParcelableArrayList("trailers");
+            populateReviews();
+            populateTrailers();
+        }
 
         mReviewButton.setOnClickListener(this);
         mTrailerButton.setOnClickListener(this);
         mFavoriteButton.setOnClickListener(this);
+    }
 
-        mMovieTrailerList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                //play trailer
-                TextView movietitleview = (TextView) view.findViewById(R.id.trailer_name);
-                String movieid = movietitleview.getTag().toString();
-                try{
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.youtube_app_uri) + movieid));
-                    startActivity(intent);
-                }catch (ActivityNotFoundException ex){
-                    Intent intent=new Intent(Intent.ACTION_VIEW,
-                            Uri.parse(getString(R.string.youtube_web_url) + movieid));
-                    startActivity(intent);
-                }
-            }
-        });
+    //save our current movies so that we dont have to make multiple calls
+    @Override
+    protected void onSaveInstanceState(Bundle currentMovieBundle) {
+        currentMovieBundle.putParcelableArrayList("reviews", mCurrentReviews);
+        currentMovieBundle.putParcelableArrayList("trailers", mCurrentTrailers);
+        super.onSaveInstanceState(currentMovieBundle);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_movie_detail, menu);
-        MenuItem item = menu.findItem(R.id.menu_item_share);
+        MenuItem item = menu.findItem(R.id.action_share);
         mShareActionProvider = (ShareActionProvider) item.getActionProvider();
         return true;
     }
@@ -151,7 +143,7 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
 
     public void saveMovieToFavorites() {
         //check for movie in favorites to avoid duplicates
-        Cursor moviecursor = this.getContentResolver().query(MovieContract.MovieEntry.CONTENT_URI,null,MovieContract.MovieEntry.COLUMN_NAME_MOVIE_ID + " = " + mMovie.getID(), null,null,null);
+        Cursor moviecursor = this.getContentResolver().query(MovieContract.MovieEntry.CONTENT_URI, null, MovieContract.MovieEntry.COLUMN_NAME_MOVIE_ID + " = " + mMovie.getID(), null, null, null);
         if(moviecursor.getCount() == 0) { // first time this movie has been favorited insert record
             Uri movieUri = this.getContentResolver().insert(MovieContract.MovieEntry.CONTENT_URI, Constants.createMovieRecord(mMovie));
             long movieid = ContentUris.parseId(movieUri);
@@ -179,7 +171,7 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
         }
 
         //share first trailer
-        if(id == R.id.menu_item_share) {
+        if(id == R.id.action_share) {
             Intent shareIntent = new Intent();
             shareIntent.setAction(Intent.ACTION_SEND);
             shareIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.youtube_web_url) + mMovie.getID());
@@ -198,14 +190,14 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
 
     @Override
     public void onFetchReviewsTaskCompleted() {
-        mMovieReviewAdapter = new MovieReviewAdapter(this, Constants.mReviews);
-        mReviewList.setAdapter(mMovieReviewAdapter);
+        mCurrentReviews = Constants.mReviews;
+        populateReviews();
     }
 
     @Override
     public void onFetchTrailerTaskCompleted() {
-        mMovieTrailerAdapter = new MovieTrailerAdapter(this, Constants.mTrailers);
-        mMovieTrailerList.setAdapter(mMovieTrailerAdapter);
+        mCurrentTrailers = Constants.mTrailers;
+        populateTrailers();
     }
 
     @Override
@@ -238,5 +230,52 @@ public class MovieDetailActivity extends Activity implements ITaskCompleteListen
 
         mMovieTrailerList.setVisibility(View.VISIBLE);
         mReviewList.setVisibility(View.INVISIBLE);
+    }
+
+    public void populateReviews(){
+        for(int i = 0; i < mCurrentReviews.size();i++){
+            LayoutInflater vi = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            View v = vi.inflate(R.layout.movie_review_list_item, null);
+
+            TextView reviewtextview = (TextView) v.findViewById(R.id.movie_review_name);
+            String reviewtext = mCurrentReviews.get(i).getContent();
+            if(reviewtext != null)
+                reviewtextview.setText(reviewtext);
+
+            // insert into main view
+            mReviewList.addView(v);
+        }
+    }
+
+    public void populateTrailers(){
+        for(int i = 0; i < Constants.mTrailers.size();i++){
+            LayoutInflater vi = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            View v = vi.inflate(R.layout.movie_trailer_list_item, null);
+
+            TextView trailername = (TextView) v.findViewById(R.id.trailer_name);
+            trailername.setText(Constants.mTrailers.get(i).getName());
+            trailername.setTag(Constants.mTrailers.get(i).getID());
+
+            v.setOnClickListener(new View.OnClickListener() {
+
+                @Override
+                public void onClick(View v) {
+                    //play trailer
+                    TextView movietitleview = (TextView) v.findViewById(R.id.trailer_name);
+                    String movieid = movietitleview.getTag().toString();
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.youtube_app_uri) + movieid));
+                        startActivity(intent);
+                    } catch (ActivityNotFoundException ex) {
+                        Intent intent = new Intent(Intent.ACTION_VIEW,
+                                Uri.parse(getString(R.string.youtube_web_url) + movieid));
+                        startActivity(intent);
+                    }
+                }
+            });
+
+            // insert into main view
+            mMovieTrailerList.addView(v);
+        }
     }
 }

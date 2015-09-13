@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="white">#ffffff</color>
+    <color name="accent_color_button">#80CBC4</color>
+    <color name="action_bar_color">#000</color>
+    <color name="action_bar_overflow_color">#FFF</color>
+    <color name="movie_detail_header_color">#009688</color>
+    <color name="movie_details_text_color">#747474</color>
+    <color name="movie_review_trailer_list_header_button_color">#E0F2F1</color>
+
+</resources>

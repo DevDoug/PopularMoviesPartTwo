@@ -16,4 +16,9 @@
         android:title="@string/show_favorites_string"
         android:orderInCategory="101" />
 
+    <item android:id="@+id/action_share"
+        android:title="Share"
+        app:showAsAction="always"
+        app:actionProviderClass="android.support.v7.widget.ShareActionProvider" />
+
 </menu>
